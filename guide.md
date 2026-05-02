@@ -1,65 +1,94 @@
-# Team Hub Deployment Guide (Railway)
+# Team Hub Deployment Guide (Railway Postgres + Vercel Apps)
 
-This guide explains how to deploy Team Hub with separate backend and frontend Railway services plus a shared PostgreSQL service.
+This guide deploys:
+- Database on Railway PostgreSQL (already running in your case)
+- Backend on Vercel (`apps/api`)
+- Frontend on Vercel (`apps/web`)
 
-## 1) Prerequisites
-- Railway account and project access.
-- GitHub repository connected to Railway.
-- Node.js 18+ and pnpm 9+ locally.
-- A clean `.env.example` committed, with real secrets only in Railway variables.
+It is written for beginners and follows a click-by-click process.
 
-## 2) Architecture on Railway
-- `Postgres Service` (Railway plugin): stores all application data.
-- `API Service` (`apps/api`): Express REST API + Socket.io server.
-- `Web Service` (`apps/web`): Next.js frontend.
+## 1) Final Architecture
 
-Traffic flow:
-1. Browser loads the Web service.
-2. Web calls API service using `NEXT_PUBLIC_API_URL`.
-3. Web opens Socket.io connection to API using `NEXT_PUBLIC_SOCKET_URL`.
-4. API reads/writes Postgres via `DATABASE_URL`.
+You will use two platforms:
+- Railway: PostgreSQL only
+- Vercel: API + Web apps
 
-## 3) Create Railway Project and Postgres
-1. Create a new Railway project.
-2. Add a PostgreSQL service/plugin.
-3. Confirm `DATABASE_URL` is available in the Postgres service variables.
+Request flow:
+1. User opens Vercel frontend URL.
+2. Frontend calls Vercel backend URL (`/api/...` routes).
+3. Backend connects to Railway Postgres through `DATABASE_URL`.
 
-## 4) Deploy Backend Service (API)
-### Service creation
-1. Add a new service from your GitHub repo.
-2. Keep root as repository root.
-3. Use the following commands:
+## 2) Important Runtime Note (Realtime)
 
-Build command:
+Vercel serverless functions are stateless and do not keep persistent Socket.io servers like a long-running Node server.
+Because of that:
+- REST API features work on Vercel.
+- Real-time Socket.io presence/live events are limited/not persistent in this setup.
+
+If full realtime is required later, move websocket service to a long-running host or use a managed realtime provider.
+
+## 3) Prerequisites
+
+- GitHub repo is pushed:
+  - `https://github.com/najibulazam/fredocloud-technical-assessment-project-teamhub`
+- Railway Postgres already running.
+- Vercel account connected to your GitHub.
+- `.env` files are not committed.
+
+Quick check:
+
 ```bash
-pnpm install --frozen-lockfile
+git ls-files | findstr /R "\.env$ \.env\.local$"
 ```
 
-Start command:
-```bash
-pnpm --filter @team-hub/api start
-```
+Expected output: empty.
 
-### Required backend variables
-Set these in API service variables:
+## 4) Get Railway Database URL
+
+1. Open Railway project.
+2. Open PostgreSQL service.
+3. Go to `Variables`.
+4. Copy `DATABASE_URL`.
+5. Keep it ready for Vercel backend environment variables.
+
+## 5) Deploy Backend to Vercel (`apps/api`)
+
+### A) Import project
+1. Open [Vercel Dashboard](https://vercel.com/dashboard).
+2. Click `Add New...` -> `Project`.
+3. Select GitHub repo `fredocloud-technical-assessment-project-teamhub`.
+4. When asked for project settings:
+   - Project Name: `team-hub-api` (recommended)
+   - Root Directory: `apps/api`
+
+### B) Build settings
+Use:
+- Framework Preset: `Other`
+- Build Command: leave default or set `pnpm install --frozen-lockfile`
+- Output Directory: leave empty
+
+`apps/api/vercel.json` is already added to route all requests to the serverless API entrypoint.
+
+### C) Backend environment variables on Vercel
+In project `Settings` -> `Environment Variables`, add:
 
 ```env
 DATABASE_URL=postgresql://...
 API_PORT=5000
-JWT_ACCESS_SECRET=...
-JWT_REFRESH_SECRET=...
+JWT_ACCESS_SECRET=<long-random-secret>
+JWT_REFRESH_SECRET=<long-random-secret>
 JWT_ACCESS_EXPIRES=15m
 JWT_REFRESH_EXPIRES=7d
-CORS_ORIGIN=https://<web-service>.up.railway.app
-CLIENT_URL=https://<web-service>.up.railway.app
-```
-
-Optional but recommended:
-
-```env
+CORS_ORIGIN=https://<your-frontend-domain>
+CLIENT_URL=https://<your-frontend-domain>
 COOKIE_SECURE=true
 UPLOAD_MAX_BYTES=5242880
 INVITE_EXPIRES_DAYS=7
+```
+
+Optional integrations:
+
+```env
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
@@ -71,78 +100,121 @@ EMAILJS_PUBLIC_KEY=
 EMAILJS_PRIVATE_KEY=
 ```
 
-### Run production migrations
-Run once against Railway DB:
+### D) Deploy
+1. Click `Deploy`.
+2. Wait for successful build.
+3. Copy backend URL, e.g. `https://team-hub-api.vercel.app`.
+4. Check health endpoint:
+   - `https://team-hub-api.vercel.app/api/health`
+
+## 6) Run Prisma Migrations Against Railway DB
+
+Do this from your local project folder:
 
 ```bash
 pnpm --filter @team-hub/db exec prisma migrate deploy --schema prisma/schema.prisma
 ```
 
-If needed, run seeding:
+Optional seed:
 
 ```bash
 pnpm --filter @team-hub/api seed
 ```
 
-## 5) Deploy Frontend Service (Web)
-### Service creation
-1. Add a second service from the same repository.
-2. Keep root as repository root.
-3. Use:
+## 7) Deploy Frontend to Vercel (`apps/web`)
 
-Build command:
-```bash
-pnpm install --frozen-lockfile && pnpm --filter @team-hub/web build
-```
+### A) Import second Vercel project
+1. In Vercel, click `Add New...` -> `Project`.
+2. Select same GitHub repo again.
+3. Set:
+   - Project Name: `team-hub-web`
+   - Root Directory: `apps/web`
+   - Framework Preset: `Next.js`
 
-Start command:
-```bash
-pnpm --filter @team-hub/web start
-```
+### B) Frontend environment variables
+Set in `Settings` -> `Environment Variables`:
 
-### Required frontend variables
 ```env
-NEXT_PUBLIC_API_URL=https://<api-service>.up.railway.app/api
-NEXT_PUBLIC_SOCKET_URL=https://<api-service>.up.railway.app
+NEXT_PUBLIC_API_URL=https://<your-api-vercel-domain>/api
+NEXT_PUBLIC_SOCKET_URL=https://<your-api-vercel-domain>
 ```
 
-## 6) Cross-Service Settings Checklist
-- API `CORS_ORIGIN` must include the exact web app origin.
-- API `CLIENT_URL` must be the same public web URL.
-- Web `NEXT_PUBLIC_API_URL` must include `/api`.
-- Web `NEXT_PUBLIC_SOCKET_URL` must point to API origin without `/api`.
-- Use HTTPS-only production URLs.
+Example:
 
-## 7) Verification Steps
-After deployment:
-1. Open API health endpoint: `https://<api>/api/health`.
-2. Open web app login/register pages.
-3. Log in with demo account.
-4. Verify workspace list loads.
-5. Verify realtime updates (comments/reactions/status) across two browser tabs.
-6. Verify avatar upload and analytics export.
-
-## 8) Security and Git Hygiene
-- Never commit real `.env` values.
-- Keep `.env`, `apps/api/.env`, and `packages/db/.env` ignored.
-- Rotate JWT/DB/cloud secrets if they were ever exposed.
-- Keep `.env.example` as the only committed environment template.
-
-## 9) Local-Only Commands
-Install:
-
-```bash
-pnpm install
+```env
+NEXT_PUBLIC_API_URL=https://team-hub-api.vercel.app/api
+NEXT_PUBLIC_SOCKET_URL=https://team-hub-api.vercel.app
 ```
 
-Run locally:
+### C) Deploy
+1. Click `Deploy`.
+2. Wait for successful build.
+3. Copy frontend URL, e.g. `https://team-hub-web.vercel.app`.
 
-```bash
-pnpm dev
+## 8) Final Cross-Project Update
+
+After frontend URL is ready, go back to backend project vars and ensure:
+
+```env
+CORS_ORIGIN=https://<your-frontend-vercel-domain>
+CLIENT_URL=https://<your-frontend-vercel-domain>
 ```
 
-Run lint:
+Then redeploy backend once.
 
-```bash
-pnpm lint
-```
+## 9) Verify End-to-End
+
+1. Backend health:
+   - `https://<api-domain>/api/health`
+2. Open frontend URL.
+3. Register/login.
+4. Check workspace/goals/action-items/announcements pages.
+5. Test avatar upload and CSV export.
+
+Note:
+- Live Socket.io events may not behave as in local long-running server.
+
+## 10) Vercel Auto Deploy Workflow
+
+Both Vercel projects are connected to the same GitHub repo.
+Default behavior:
+- Every push to configured branch triggers deployment.
+
+Recommended:
+1. Work in feature branch.
+2. Open PR.
+3. Merge to `main`.
+4. Vercel auto-deploys both projects.
+
+## 11) Common Errors and Fixes
+
+### Frontend cannot call backend
+Cause:
+- Wrong `NEXT_PUBLIC_API_URL`.
+Fix:
+- Must be full URL and include `/api`.
+
+### CORS error in browser
+Cause:
+- Backend `CORS_ORIGIN` not exactly equal to frontend Vercel domain.
+Fix:
+- Set exact frontend URL and redeploy backend.
+
+### Database errors from backend
+Cause:
+- Wrong `DATABASE_URL` or migrations missing.
+Fix:
+- Re-check Railway DB URL and run migrate deploy.
+
+### Login cookie issues in production
+Cause:
+- `COOKIE_SECURE` not set correctly.
+Fix:
+- Keep `COOKIE_SECURE=true` on Vercel production.
+
+## 12) Security Checklist
+
+- Do not commit real `.env` files.
+- Keep secrets only in Vercel/Railway environment variables.
+- Keep `.env.example` as template only.
+- Rotate secrets if exposed.
