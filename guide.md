@@ -137,6 +137,7 @@ Set in `Settings` -> `Environment Variables`:
 ```env
 NEXT_PUBLIC_API_URL=https://<your-api-vercel-domain>/api
 NEXT_PUBLIC_SOCKET_URL=https://<your-api-vercel-domain>
+NEXT_PUBLIC_ENABLE_SOCKET=false
 ```
 
 Example:
@@ -144,6 +145,7 @@ Example:
 ```env
 NEXT_PUBLIC_API_URL=https://team-hub-api.vercel.app/api
 NEXT_PUBLIC_SOCKET_URL=https://team-hub-api.vercel.app
+NEXT_PUBLIC_ENABLE_SOCKET=false
 ```
 
 ### C) Deploy
