@@ -1,0 +1,283 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  refreshTokens      RefreshToken[]
+  memberships        WorkspaceMember[]
+  invitationsSent    Invitation[]      @relation("InvitedBy")
+  goals              Goal[]            @relation("GoalOwner")
+  goalUpdates        GoalUpdate[]      @relation("GoalUpdateAuthor")
+  assignedActionItems ActionItem[]     @relation("ActionItemAssignee")
+  announcements      Announcement[]    @relation("AnnouncementAuthor")
+  reactions          Reaction[]
+  comments           Comment[]         @relation("CommentAuthor")
+  notifications      Notification[]
+  auditLogs          AuditLog[]        @relation("AuditLogActor")
+  workspaceJoinRequests WorkspaceJoinRequest[] @relation("WorkspaceJoinRequester")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Workspace {
+  id           Int      @id @default(autoincrement())
+  name         String
+  description  String?
+  accentColor  String?
+  createdAt    DateTime @default(now())
+
+  members      WorkspaceMember[]
+  invitations  Invitation[]
+  goals        Goal[]
+  actionItems  ActionItem[]
+  announcements Announcement[]
+  auditLogs    AuditLog[]
+  joinRequests WorkspaceJoinRequest[]
+}
+
+model WorkspaceJoinRequest {
+  id          Int               @id @default(autoincrement())
+  requesterId Int
+  workspaceId Int
+  status      JoinRequestStatus @default(PENDING)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  requester User      @relation("WorkspaceJoinRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, workspaceId])
+  @@index([workspaceId, status])
+}
+
+model WorkspaceMember {
+  id          Int           @id @default(autoincrement())
+  userId      Int
+  workspaceId Int
+  role        WorkspaceRole
+  joinedAt    DateTime      @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+model Invitation {
+  id              Int              @id @default(autoincrement())
+  email           String
+  workspaceId     Int
+  invitedByUserId Int
+  token           String           @unique
+  status          InvitationStatus @default(PENDING)
+  expiresAt       DateTime
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User      @relation("InvitedBy", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([workspaceId])
+}
+
+model Goal {
+  id          Int        @id @default(autoincrement())
+  title       String
+  ownerId     Int
+  workspaceId Int
+  dueDate     DateTime?
+  status      GoalStatus @default(NOT_STARTED)
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  owner      User      @relation("GoalOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  milestones Milestone[]
+  updates    GoalUpdate[]
+  actionItems ActionItem[]
+
+  @@index([workspaceId])
+  @@index([ownerId])
+}
+
+model Milestone {
+  id          Int      @id @default(autoincrement())
+  goalId      Int
+  title       String
+  progress    Int      @default(0)
+  completedAt DateTime?
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+}
+
+model GoalUpdate {
+  id        Int      @id @default(autoincrement())
+  goalId    Int
+  authorId  Int
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  goal   Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  author User @relation("GoalUpdateAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+  @@index([authorId])
+}
+
+model ActionItem {
+  id          Int            @id @default(autoincrement())
+  title       String
+  assigneeId  Int?
+  goalId      Int?
+  workspaceId Int
+  priority    ActionPriority @default(MEDIUM)
+  status      ActionStatus   @default(TODO)
+  dueDate     DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  assignee  User?      @relation("ActionItemAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  goal      Goal?      @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([assigneeId])
+  @@index([goalId])
+}
+
+model Announcement {
+  id          Int      @id @default(autoincrement())
+  workspaceId Int
+  authorId    Int
+  content     String   @db.Text
+  isPinned    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author    User        @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  reactions Reaction[]
+  comments  Comment[]
+
+  @@index([workspaceId])
+  @@index([authorId])
+}
+
+model Reaction {
+  id             Int    @id @default(autoincrement())
+  announcementId Int
+  userId         Int
+  emoji          String
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@index([announcementId])
+}
+
+model Comment {
+  id             Int      @id @default(autoincrement())
+  announcementId Int
+  authorId       Int
+  content        String   @db.Text
+  createdAt      DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  author       User         @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
+  @@index([authorId])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      String
+  payload   Json
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  workspaceId Int
+  actorId     Int
+  action      String
+  entity      String
+  entityId    String
+  diff        Json
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor     User      @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([actorId])
+}
+
+enum WorkspaceRole {
+  ADMIN
+  MEMBER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum GoalStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ActionPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ActionStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
