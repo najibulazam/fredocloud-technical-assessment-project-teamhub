@@ -5,6 +5,10 @@
   "type": "module",
   "main": "./index.js",
   "exports": "./index.js",
+  "scripts": {
+    "generate": "prisma generate --schema prisma/schema.prisma",
+    "postinstall": "pnpm run generate"
+  },
   "dependencies": {
     "@prisma/client": "^5.14.0"
   },

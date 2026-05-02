@@ -23,18 +23,6 @@ export default function WorkspaceMembersPage() {
     enabled: Boolean(workspaceId)
   });
 
-  if (isLoading) {
-    return <p className="text-sm text-slate-500 dark:text-slate-400">Loading members...</p>;
-  }
-
-  if (!workspace) {
-    return <p className="text-sm text-slate-500 dark:text-slate-400">Workspace not found.</p>;
-  }
-
-  const members = workspace.members || [];
-  const myMembership = members.find((member) => member.userId === user?.id) || null;
-  const canManageMembers = myMembership?.role === "ADMIN";
-
   const updateRole = useMutation({
     mutationFn: ({ memberId, nextRole }) =>
       api.put(`/workspaces/${workspaceId}/members/${memberId}/role`, { role: nextRole }).then((res) => res.data),
@@ -60,6 +48,18 @@ export default function WorkspaceMembersPage() {
       showToast({ message: "Failed to remove member", variant: "error" }, 3000);
     }
   });
+
+  if (isLoading) {
+    return <p className="text-sm text-slate-500 dark:text-slate-400">Loading members...</p>;
+  }
+
+  if (!workspace) {
+    return <p className="text-sm text-slate-500 dark:text-slate-400">Workspace not found.</p>;
+  }
+
+  const members = workspace.members || [];
+  const myMembership = members.find((member) => member.userId === user?.id) || null;
+  const canManageMembers = myMembership?.role === "ADMIN";
 
   return (
     <section className="space-y-4">

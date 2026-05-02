@@ -206,6 +206,20 @@ Cause:
 Fix:
 - Re-check Railway DB URL and run migrate deploy.
 
+### Error: `@prisma/client did not initialize yet`
+Cause:
+- Prisma Client was not generated during Vercel build.
+
+Fix:
+1. Confirm this repo includes `packages/db` postinstall generate script.
+2. In Vercel API project, set Root Directory to `apps/api`.
+3. In Vercel Web project, set Root Directory to `apps/web` (important).
+4. Redeploy API project first.
+5. If still failing, clear Vercel build cache and redeploy.
+
+Why this happens:
+- `@team-hub/db` needs `prisma generate` to create runtime client artifacts used by serverless functions.
+
 ### Login cookie issues in production
 Cause:
 - `COOKIE_SECURE` not set correctly.
