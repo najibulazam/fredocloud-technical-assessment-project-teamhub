@@ -1,13 +1,28 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AppShell from "./AppShell";
+import { useAuthStore } from "../../store/authStore";
 
 export default function AppLayout({ children }) {
-  const cookieStore = cookies();
-  const accessToken = cookieStore.get("accessToken");
+  const router = useRouter();
+  const initialize = useAuthStore((state) => state.initialize);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-  if (!accessToken) {
-    redirect("/login");
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  if (isLoading || !isAuthenticated) {
+    return null;
   }
 
   return <AppShell>{children}</AppShell>;
