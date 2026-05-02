@@ -12,11 +12,11 @@ This project is built for the FredoCloud assessment requirements:
 - Railway deployment with separate frontend and backend services.
 
 ## Live Links
-- Web App: `<add-railway-web-url>`
-- API: `<add-railway-api-url>`
-- API Health: `<add-railway-api-url>/api/health`
-- GitHub Repository: `<add-public-github-url>`
-- Demo Video (3-5 min): `<add-video-url>`
+- Web App (Vercel): `https://team-hub-web-five.vercel.app`
+- API (Vercel): `https://team-hub-api-rust.vercel.app`
+- API Health: `https://team-hub-api-rust.vercel.app/api/health`
+- GitHub Repository: `https://github.com/najibulazam/fredocloud-technical-assessment-project-teamhub`
+- Demo Video (3-5 min): `https://youtu.be/mUW8n1cLBoM`
 
 ## Demo Account
 - Email: `teamhub@gmail.com`
@@ -38,7 +38,7 @@ pnpm --filter @team-hub/api seed
 - Realtime: `Socket.io`
 - Storage: `Cloudinary` (avatar upload)
 - Email: `EmailJS` (invites and mentions)
-- Deployment: `Railway`
+- Deployment: `Railway Postgres` + `Vercel` (API + Web)
 
 ## Assignment Coverage
 ### Core Features
@@ -206,9 +206,9 @@ pnpm --filter @team-hub/api dev
 pnpm --filter @team-hub/db exec prisma studio
 ```
 
-## Railway Deployment Summary
-- Deploy `apps/api` and `apps/web` as separate Railway services in one project.
-- Provision PostgreSQL plugin and map `DATABASE_URL` to API service.
+## Deployment Summary (Vercel + Railway Postgres)
+- Deploy `apps/api` and `apps/web` as separate Vercel projects.
+- Provision PostgreSQL on Railway and map `DATABASE_URL` to the API project.
 - Set backend variables (`JWT_*`, `CLIENT_URL`, `CORS_ORIGIN`, optional Cloudinary/EmailJS).
 - Set frontend variables:
   - `NEXT_PUBLIC_API_URL=https://<api-service>/api`
@@ -218,6 +218,9 @@ pnpm --filter @team-hub/db exec prisma studio
 ```bash
 pnpm --filter @team-hub/db exec prisma migrate deploy --schema prisma/schema.prisma
 ```
+
+## Deployment Note
+I attempted a full Railway deployment first, but without a paid plan I chose Vercel for free API and web hosting while keeping Railway for Postgres.
 
 Detailed step-by-step deployment instructions are in `guide.md`.
 
