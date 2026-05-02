@@ -9,9 +9,10 @@ const REFRESH_DAYS = 7;
 const SALT_ROUNDS = 12;
 const isSecureCookie =
   process.env.NODE_ENV === "production" || process.env.COOKIE_SECURE === "true";
+const cookieSameSite = process.env.COOKIE_SAME_SITE || (isSecureCookie ? "none" : "strict");
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  sameSite: "strict",
+  sameSite: cookieSameSite,
   secure: isSecureCookie
 };
 
